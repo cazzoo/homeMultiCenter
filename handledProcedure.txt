@@ -1,0 +1,157 @@
+Linux Debian Server
+
+
+Serveur SSH : openSSH
+Serveur uPnP : uShare
+Partage de données : ownCloud
+Gestionnaire de téléchargements : aria2 + webUI + pyLoad
+Gestionnaire de torrents : aria2 / qBittorent
+Serveur MySQL : Mysql-server
+Serveur web : Apache2 + Nginx
+Machine virtuelle : Java 7
+Reverse Proxy : Varnish
+DNS / DHTP : dnsmasq pour le début ou BIND (avancé)
+Intégration continue : Jenkins CI + Sonar
+Gestion de tâches avancé : Htop
+Gestion des bugs / Forge : Chilliproject / TheBugGenie
+
+
+Procédure installation debian web
+1. Nom de la machine sur le réseau : CAZ-CENTRAL
+2. Nom de domaine : WORKGROUP
+3. Mot de passe SU : altR5+
+4. User name : caz
+5. User : caz
+6. Pass : à définir
+7. Choix des logiciels à installer : Utilitaires système seulement
+
+
+________________
+Installation des programmes
+login avec caz puis su
+aptitude install git-core zip bzip2 subversion
+Java
+echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu precise main" > /etc/apt/sources.list.d/webupd8team-java.list
+echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu precise main" >> /etc/apt/sources.list.d/webupd8team-java.list
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EEA14886
+aptitude update && aptitude install oracle-java7-installer
+SSH
+1. aptitude install openssh-server
+uPnP
+http://wiki.alexenko.com/linux:debian:ushare
+1. aptitude install build-essential pkg-config libupnp3-dev libavformat-dev gcc
+2. cd /usr/src/ && aria2c http://goo.gl/tJe9W
+3. tar jxvf libdlna-0.2.4.tar.bz2 && cd libdlna-0.2.4/
+4. grep avformat.h * -l -R | xargs sed -i 's|ffmpeg/avformat.h|libavformat/avformat.h|'
+5. grep avcodec.h * -l -R | xargs sed -i 's|ffmpeg/avcodec.h|libavcodec/avcodec.h|'
+6. ./configure
+7. make
+8. make install
+
+
+1. cd /usr/src && aria2c http://goo.gl/q9E5p
+2. tar jxf ushare-1.1a.tar.bz2
+3. cd ushare-1.1a
+4. ./configure --prefix=/ --bindir=/usr/bin --enable-dlna
+5. make
+6. make install
+
+
+1. aptitude install libupnp-dev
+1. wget http://goo.gl/q9E5p
+2. mv q9E5p ushare.tar.bz2
+3. tar -jxvf ushare.tar.bz2
+Gestionnaire de tâches et flux
+1. aptitude install htop && aptitude install iftop
+Navigateur web
+1. aptitude install lynx
+uyServeur Web
+1. aptitude install apache2 apache2-utils php5 php-pear php5-cli php5-gd php5-sqlite php5-cgi php5-curl php5-mysql mp3info curl libcurl3 libcurl3-dev libapache2-mod-php5
+Serveur MySQL
+1. aptitude install mysql-server
+2. mot de passe su mysql : à définir
+3. aptitude install phpmyadmin
+Gestionnaire de téléchargements
+1. echo "deb http://ftp.de.debian.org/debian wheezy main" >> /etc/apt/sources.list
+1. aptitude update && aptitude -t wheezy install aria2
+2. sed -i '$d' /etc/apt/sources.list
+3. aria2c http://goo.gl/IJbe5 && unzip TheBear1.0.1.zip -d /usr/share/thebear
+4. chown -R www-data:www-data /usr/share/thebear/assets && chown -R www-data:www-data /usr/share/thebear/protected
+5. mkdir /etc/thebear && cp /etc/phpmyadmin/apache.conf /etc/thebear/apache.conf
+6. nano /etc/thebear/apache.conf > changer pour le chemin vers /usr/share/thebear
+7. ln -s /etc/thebear/apache.conf /etc/apache2/conf.d/thebear.conf && service apache2 reload
+8. mkdir /home/caz/downloads && nano /etc/init.d/aria2cRPC
+
+
+#! /bin/sh
+# /etc/init.d/aria2cRPC
+
+
+### BEGIN INIT INFO
+# Provides: aria2cRPC
+# Required-Start: 
+# Required-Stop: 
+# Should-Start: 
+# Should-Stop: 
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: aria2c RPC init script.
+# Description: Starts and stops aria2 RPC services.
+# author: Casimir Bonnet
+# author email: caz.san@gmail.com
+# last updated: 06/21/2012
+### END INIT INFO
+
+
+#VAR
+RUN="/usr/bin/aria2c" 
+ARIA_PID=$(ps ux | awk '/aria2c --enable-rpc/ && !/awk/ {print $2}')
+
+
+# Some things that run always
+touch /var/lock/aria2cRPC
+
+
+# Carry out specific functions when asked to by the system
+case "$1" in
+  start)
+    echo "Starting script aria2cRPC "
+        if [ -z "$ARIA_PID" ]; then
+                nohup $RUN --enable-rpc=true --dir=/home/caz/downloads --log=/home/caz/aria.log --log-level=error --dht-listen-port=6801 --rpc-user=caz --rpc-passwd=caz -D
+                echo "Started"
+        else
+                echo "aria2cRPC already started"
+        fi
+    ;;
+  stop)
+    echo "Stopping script aria2cRPC"
+        if [ ! -z "$ARIA_PID" ]; then
+                kill $ARIA_PID
+        fi
+        echo "OK"
+    ;;
+  status)
+        if [ ! -z "$ARIA_PID" ]; then
+                echo "The aria2c RPC is running with PID = "$ARIA_PID
+        else
+                echo "No process found for aria2c RPC"
+        fi
+   ;;
+  *)
+    echo "Usage: /etc/init.d/aria2cRPC {start|stop|status}"
+    exit 1
+    ;;
+esac
+
+
+exit 0
+
+
+1. chmod 755 /etc/init.d/aria2cRPC && update-rc.d aria2cRPC defaults
+Partage de données
+1. aria2c http://goo.gl/VVDRM
+2. tar -xjf owncloud-4.0.2.tar.bz2 -C /var/www && chown -R www-data:www-data /var/www/owncloud
+3. cp /etc/apache2/sites-available/thebear /etc/apache2/sites-available/owncloud
+4. nano /etc/apache2/sites-enabled/000-default => AllowOverride is set to All in the ‘Directory /var/www/’
+5. a2enmod rewrite && a2enmod headers && service apache2 restart
+6. web URL : http://localhost/owncloud/
